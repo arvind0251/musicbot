@@ -1,4 +1,9 @@
-from dotenv import load_dotenv
-load_dotenv()
+# Ignore Python bytecode files
+*.pyc
+__pycache__/
 
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+# Ignore environment variable files
+.env
+
+# Ignore Heroku logs
+heroku_logs/
