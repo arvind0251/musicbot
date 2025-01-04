@@ -6,7 +6,7 @@ This is a Telegram bot that modifies the pitch of voice messages sent to it.
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/your-username/voice-pitch-modifier-bot.git
+   git clone https://github.com/arvind0251/vioce_bot/voice-pitch-modifier-bot.git
 
 # install tha dependencies
 
