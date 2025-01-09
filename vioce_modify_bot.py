@@ -1,50 +1,64 @@
-import os
-from telegram import Update, InputFile
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 from pydub import AudioSegment
+import os
 
-# Get the bot token from environment variables or .env file
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")  # or hardcode the token if testing locally
+# Replace with your bot token
+BOT_TOKEN = "YOUR_BOT_TOKEN"
 
-def modify_voice(input_file, output_file, pitch_shift=3):
-    """Modify the pitch of the audio."""
-    audio = AudioSegment.from_file(input_file)
-    shifted_audio = audio._spawn(audio.raw_data, overrides={
-        "frame_rate": int(audio.frame_rate * (2.0 ** (pitch_shift / 12.0)))
-    })
-    shifted_audio = shifted_audio.set_frame_rate(audio.frame_rate)
-    shifted_audio.export(output_file, format="wav")
-    return output_file
+# Function to change pitch of the voice
+def change_pitch(input_file, output_file, semitones=4):
+    sound = AudioSegment.from_file(input_file)
+    octaves = semitones / 12.0
+    new_sample_rate = int(sound.frame_rate * (2.0 ** octaves))
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send a welcome message."""
-    await update.message.reply_text("Welcome! Send me an audio file, and I'll modify its pitch for you.")
+    # Change the pitch
+    pitched_sound = sound._spawn(sound.raw_data, overrides={'frame_rate': new_sample_rate})
+    pitched_sound = pitched_sound.set_frame_rate(44100)
+    pitched_sound.export(output_file, format="wav")
+    print(f"Modified voice saved as {output_file}")
 
-async def handle_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle the received audio file and modify its pitch."""
-    if update.message.voice or update.message.audio:
-        # Download the audio file
-        file = await context.bot.get_file(update.message.voice.file_id if update.message.voice else update.message.audio.file_id)
-        input_file = "input_audio.ogg"
-        await file.download_to_drive(input_file)
+# /start command handler
+def start(update: Update, context: CallbackContext) -> None:
+    update.message.reply_text("Hello! Send me a voice file, and I will modify its pitch to sound like a girl.")
 
-        # Modify the audio
-        output_file = "modified_audio.wav"
-        modify_voice(input_file, output_file)
+# Voice message handler
+def handle_voice(update: Update, context: CallbackContext) -> None:
+    voice_file = update.message.voice.get_file()
+    input_file = "input_voice.ogg"
+    output_file = "modified_voice.wav"
 
-        # Send the modified audio back to the user
-        await update.message.reply_audio(audio=InputFile(output_file))
+    try:
+        # Download the voice file
+        voice_file.download(input_file)
 
-        # Clean up files
+        # Convert the pitch
+        change_pitch(input_file, output_file, semitones=4)
+
+        # Send the modified voice back
+        with open(output_file, "rb") as audio:
+            update.message.reply_audio(audio, caption="Here's your modified voice!")
+
+        # Clean up temporary files
         os.remove(input_file)
         os.remove(output_file)
-    else:
-        await update.message.reply_text("Please send an audio or voice file.")
+
+    except Exception as e:
+        update.message.reply_text(f"An error occurred: {str(e)}")
+
+# Main function to set up the bot
+def main():
+    updater = Updater(BOT_TOKEN)
+    dispatcher = updater.dispatcher
+
+    # Handlers
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(MessageHandler(Filters.voice, handle_voice))
+
+    # Start the bot
+    updater.start_polling()
+    print("Bot is running...")
+    updater.idle()
 
 if __name__ == "__main__":
-    app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_audio))
-
-    print("Bot is running...")
-    app.run_polling()
+    main()
